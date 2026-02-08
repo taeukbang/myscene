@@ -133,12 +133,12 @@ export async function filterPhoto(
   let score = 100;
   const reasons: string[] = [];
 
-  // 1. Resolution check
-  if (width < 500 || height < 500) {
+  // 1. Resolution check (high quality: 800px minimum)
+  if (width < 800 || height < 800) {
     return {
       passed: false,
       score: 0,
-      reason: `Resolution too low: ${width}x${height} (minimum 500px)`,
+      reason: `Resolution too low: ${width}x${height} (minimum 800px)`,
     };
   }
 

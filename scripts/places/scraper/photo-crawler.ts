@@ -260,9 +260,10 @@ async function searchUnsplash(
 
   try {
     // Unsplash API (free tier: 50 requests/hour)
-    const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+    // Support both UNSPLASH_ACCESS_KEY and UNSPLASH_APP_ID
+    const accessKey = process.env.UNSPLASH_ACCESS_KEY || process.env.UNSPLASH_APP_ID;
     if (!accessKey) {
-      console.log('   ⚠️  UNSPLASH_ACCESS_KEY not set, skipping Unsplash');
+      console.log('   ⚠️  UNSPLASH_ACCESS_KEY or UNSPLASH_APP_ID not set, skipping Unsplash');
       return photos;
     }
 
