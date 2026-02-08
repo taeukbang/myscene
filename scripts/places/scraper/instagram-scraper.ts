@@ -342,7 +342,7 @@ export async function scrapeInstagramByHashtag(
         });
 
         // Extract hashtags from caption
-        const hashtags = (postData.caption.match(/#[a-zA-Z가-힣0-9_]+/g) || []).map((tag) =>
+        const hashtags = (postData.caption.match(/#[a-zA-Z가-힣0-9_]+/g) || []).map((tag: string) =>
           tag.replace('#', '')
         );
 
