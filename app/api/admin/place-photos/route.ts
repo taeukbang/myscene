@@ -15,12 +15,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'placeId required' }, { status: 400 });
     }
 
-    // Get staging photos for this place
+    // Get staging photos for this place (exclude filtered photos)
     const { data, error } = await supabase
       .from('photos_staging')
       .select('*')
       .eq('place_name', placeId)
       .eq('review_status', 'pending')
+      .or('is_filtered.is.null,is_filtered.eq.false') // Include only non-filtered photos
+      .order('filter_score', { ascending: false, nullsFirst: false }) // Sort by quality score
       .order('collection_date', { ascending: false });
 
     if (error) {

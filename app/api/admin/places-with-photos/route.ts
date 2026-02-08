@@ -13,10 +13,12 @@ export async function GET() {
 
     if (error) {
       // Fallback: manual query if RPC doesn't exist yet
+      // Only count non-filtered photos
       const { data: stagingData, error: stagingError } = await supabase
         .from('photos_staging')
         .select('place_id, place_name')
-        .eq('review_status', 'pending');
+        .eq('review_status', 'pending')
+        .or('is_filtered.is.null,is_filtered.eq.false'); // Exclude filtered photos
 
       if (stagingError) {
         return NextResponse.json({ error: stagingError.message }, { status: 500 });
