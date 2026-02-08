@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx scripts/places/seed-places.ts",
+    "seed": "node scripts/places/run-seed.js",
     "scrape": "node scripts/places/scraper/run-scraper.js",
     "match": "tsx scripts/places/scraper/place-matcher.ts",
     "crawl-photos": "node scripts/places/scraper/run-photo-crawler.js"
