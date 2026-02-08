@@ -10,7 +10,8 @@
     "seed": "node scripts/places/run-seed.js",
     "scrape": "node scripts/places/scraper/run-scraper.js",
     "match": "tsx scripts/places/scraper/place-matcher.ts",
-    "crawl-photos": "node scripts/places/scraper/run-photo-crawler.js"
+    "crawl-photos": "node scripts/places/scraper/run-photo-crawler.js",
+    "filter-photos": "tsx scripts/places/scraper/image-filter.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.94.0",
@@ -33,7 +34,9 @@
     "react-dom": "^19.1.0",
     "react-leaflet": "^5.0.0",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.1.18",
+    "sharp": "^0.33.5",
+    "blockhash-core": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^20",

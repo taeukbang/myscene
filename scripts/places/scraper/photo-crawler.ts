@@ -80,14 +80,21 @@ async function searchGoogleImages(
           width: img.naturalWidth,
           height: img.naturalHeight,
         }))
-        .filter(
-          (img) =>
-            img.src &&
-            !img.src.includes('google.com/') &&
-            !img.src.startsWith('data:') &&
-            img.width > 200 &&
-            img.height > 200
-        );
+        .filter((img) => {
+          if (!img.src || img.src.includes('google.com/') || img.src.startsWith('data:')) {
+            return false;
+          }
+          // Minimum resolution: 500px on both dimensions
+          if (img.width < 500 || img.height < 500) {
+            return false;
+          }
+          // Aspect ratio check: reject too narrow or too wide images (0.3 to 3.0)
+          const aspectRatio = img.width / img.height;
+          if (aspectRatio < 0.3 || aspectRatio > 3.0) {
+            return false;
+          }
+          return true;
+        });
     });
 
     console.log(`   Found ${images.length} images`);
@@ -162,15 +169,21 @@ async function searchPinterest(
             height: img?.naturalHeight,
           };
         })
-        .filter(
-          (pin) =>
-            pin.imageUrl &&
-            pin.pinUrl &&
-            pin.width &&
-            pin.height &&
-            pin.width > 200 &&
-            pin.height > 200
-        );
+        .filter((pin) => {
+          if (!pin.imageUrl || !pin.pinUrl || !pin.width || !pin.height) {
+            return false;
+          }
+          // Minimum resolution: 500px on both dimensions
+          if (pin.width < 500 || pin.height < 500) {
+            return false;
+          }
+          // Aspect ratio check: reject too narrow or too wide images (0.3 to 3.0)
+          const aspectRatio = pin.width / pin.height;
+          if (aspectRatio < 0.3 || aspectRatio > 3.0) {
+            return false;
+          }
+          return true;
+        });
     });
 
     console.log(`   Found ${pins.length} pins`);
