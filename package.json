@@ -1,0 +1,45 @@
+{
+  "name": "myscene",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "seed": "tsx scripts/places/seed-places.ts",
+    "scrape": "node scripts/places/scraper/run-scraper.js",
+    "match": "tsx scripts/places/scraper/place-matcher.ts",
+    "crawl-photos": "node scripts/places/scraper/run-photo-crawler.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.94.0",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/leaflet": "^1.9.21",
+    "autoprefixer": "^10.4.24",
+    "axios": "^1.13.4",
+    "cheerio": "^1.2.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
+    "leaflet": "^1.9.4",
+    "next": "^15.1.6",
+    "postcss": "^8.5.6",
+    "puppeteer": "^24.36.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-leaflet": "^5.0.0",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.1.18"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
+  }
+}
