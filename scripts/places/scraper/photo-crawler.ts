@@ -22,7 +22,7 @@ const supabase = createClient(
 interface CafePhoto {
   imageUrl: string;
   sourceUrl: string;
-  sourcePlatform: 'pinterest' | 'google';
+  sourcePlatform: 'pinterest' | 'google' | 'unsplash';
   width?: number;
   height?: number;
 }
@@ -71,35 +71,57 @@ async function searchGoogleImages(
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
-    // Extract image URLs
-    const images = await page.evaluate(() => {
-      const imgElements = Array.from(document.querySelectorAll('img'));
-      return imgElements
-        .map((img) => ({
-          src: img.src,
-          width: img.naturalWidth,
-          height: img.naturalHeight,
-        }))
-        .filter((img) => {
-          if (!img.src || img.src.includes('google.com/') || img.src.startsWith('data:')) {
-            return false;
+    // Click on images to get original high-resolution URLs
+    const imageData = await page.evaluate(async () => {
+      const results: any[] = [];
+      const imgElements = Array.from(document.querySelectorAll('img[data-src], img[src]'));
+      
+      for (const img of imgElements.slice(0, 50)) {
+        try {
+          // Try to get the original image URL from data attributes
+          const dataSrc = img.getAttribute('data-src') || img.getAttribute('src');
+          if (!dataSrc || dataSrc.includes('google.com/') || dataSrc.startsWith('data:')) {
+            continue;
           }
-          // Minimum resolution: 500px on both dimensions
-          if (img.width < 500 || img.height < 500) {
-            return false;
+
+          // Extract original URL from Google Images structure
+          const parent = img.closest('a');
+          if (parent) {
+            const href = parent.getAttribute('href');
+            if (href && href.includes('imgurl=')) {
+              const match = href.match(/imgurl=([^&]+)/);
+              if (match) {
+                const originalUrl = decodeURIComponent(match[1]);
+                // Create image element to check dimensions
+                const testImg = new Image();
+                testImg.src = originalUrl;
+                await new Promise((resolve) => {
+                  testImg.onload = () => {
+                    if (testImg.naturalWidth >= 800 && testImg.naturalHeight >= 800) {
+                      results.push({
+                        src: originalUrl,
+                        width: testImg.naturalWidth,
+                        height: testImg.naturalHeight,
+                      });
+                    }
+                    resolve(null);
+                  };
+                  testImg.onerror = () => resolve(null);
+                  setTimeout(() => resolve(null), 2000); // Timeout
+                });
+              }
+            }
           }
-          // Aspect ratio check: reject too narrow or too wide images (0.3 to 3.0)
-          const aspectRatio = img.width / img.height;
-          if (aspectRatio < 0.3 || aspectRatio > 3.0) {
-            return false;
-          }
-          return true;
-        });
+        } catch (e) {
+          // Skip if error
+        }
+      }
+      return results;
     });
 
-    console.log(`   Found ${images.length} images`);
+    console.log(`   Found ${imageData.length} high-res images`);
 
-    for (const img of images.slice(0, maxPhotos)) {
+    for (const img of imageData.slice(0, maxPhotos)) {
       photos.push({
         imageUrl: img.src,
         sourceUrl: searchUrl,
@@ -153,7 +175,7 @@ async function searchPinterest(
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
-    // Extract pin URLs and images
+    // Extract pin URLs and high-resolution images
     const pins = await page.evaluate(() => {
       const pinElements = Array.from(
         document.querySelectorAll('div[data-test-id="pin"]')
@@ -162,19 +184,36 @@ async function searchPinterest(
         .map((pin) => {
           const img = pin.querySelector('img');
           const link = pin.querySelector('a');
+          
+          if (!img || !link) return null;
+
+          // Try to get high-res image URL
+          // Pinterest uses different image sizes: 236x, 474x, 564x, 736x, originals
+          let imageUrl = img.src;
+          
+          // Replace thumbnail URL with higher resolution
+          if (imageUrl.includes('236x') || imageUrl.includes('474x')) {
+            imageUrl = imageUrl.replace(/\/\d+x\//, '/736x/'); // Try 736x first
+          }
+          
+          // If still small, try to get original
+          if (imageUrl.includes('236x') || imageUrl.includes('474x')) {
+            imageUrl = imageUrl.replace(/\/\d+x\//, '/originals/');
+          }
+
           return {
-            imageUrl: img?.src,
-            pinUrl: link?.href,
-            width: img?.naturalWidth,
-            height: img?.naturalHeight,
+            imageUrl: imageUrl,
+            pinUrl: link.href,
+            width: img.naturalWidth || 0,
+            height: img.naturalHeight || 0,
           };
         })
         .filter((pin) => {
-          if (!pin.imageUrl || !pin.pinUrl || !pin.width || !pin.height) {
+          if (!pin || !pin.imageUrl || !pin.pinUrl) {
             return false;
           }
-          // Minimum resolution: 500px on both dimensions
-          if (pin.width < 500 || pin.height < 500) {
+          // Minimum resolution: 800px on both dimensions for high quality
+          if (pin.width < 800 || pin.height < 800) {
             return false;
           }
           // Aspect ratio check: reject too narrow or too wide images (0.3 to 3.0)
@@ -189,7 +228,7 @@ async function searchPinterest(
     console.log(`   Found ${pins.length} pins`);
 
     for (const pin of pins.slice(0, maxPhotos)) {
-      if (pin.imageUrl && pin.pinUrl) {
+      if (pin && pin.imageUrl && pin.pinUrl) {
         photos.push({
           imageUrl: pin.imageUrl,
           sourceUrl: pin.pinUrl,
@@ -209,6 +248,71 @@ async function searchPinterest(
 }
 
 /**
+ * Search Unsplash for high-quality cafe photos
+ */
+async function searchUnsplash(
+  cafeName: string,
+  maxPhotos: number = 25
+): Promise<CafePhoto[]> {
+  console.log(`📷 Searching Unsplash for: ${cafeName}`);
+
+  const photos: CafePhoto[] = [];
+
+  try {
+    // Unsplash API (free tier: 50 requests/hour)
+    const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (!accessKey) {
+      console.log('   ⚠️  UNSPLASH_ACCESS_KEY not set, skipping Unsplash');
+      return photos;
+    }
+
+    const searchQuery = `${cafeName} tokyo cafe interior`;
+    const apiUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
+      searchQuery
+    )}&per_page=${maxPhotos}&orientation=landscape`;
+
+    const response = await fetch(apiUrl, {
+      headers: {
+        Authorization: `Client-ID ${accessKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.log(`   ⚠️  Unsplash API error: ${response.status}`);
+      return photos;
+    }
+
+    const data = await response.json();
+
+    for (const photo of data.results || []) {
+      // Unsplash provides high-resolution images
+      // Use 'regular' size (1080px) or 'full' if available
+      const imageUrl = photo.urls?.regular || photo.urls?.small;
+      const fullUrl = photo.urls?.full; // Original resolution
+
+      if (imageUrl && photo.width && photo.height) {
+        // Only include if resolution is high enough
+        if (photo.width >= 800 && photo.height >= 800) {
+          photos.push({
+            imageUrl: fullUrl || imageUrl, // Prefer full resolution
+            sourceUrl: photo.links?.html || `https://unsplash.com/photos/${photo.id}`,
+            sourcePlatform: 'unsplash',
+            width: photo.width,
+            height: photo.height,
+          });
+        }
+      }
+    }
+
+    console.log(`   Found ${photos.length} high-quality photos from Unsplash`);
+  } catch (error) {
+    console.error(`   ❌ Error searching Unsplash:`, error);
+  }
+
+  return photos;
+}
+
+/**
  * Combine photos from multiple sources
  */
 async function collectPhotosForCafe(
@@ -219,17 +323,21 @@ async function collectPhotosForCafe(
 
   const allPhotos: CafePhoto[] = [];
 
-  // Search Google Images (25 photos)
+  // Search Unsplash first (high quality, free API)
+  const unsplashPhotos = await searchUnsplash(cafe.name, Math.ceil(targetCount / 3));
+  allPhotos.push(...unsplashPhotos);
+
+  // Search Google Images
   const googlePhotos = await searchGoogleImages(
     cafe.name,
-    Math.ceil(targetCount / 2)
+    Math.ceil(targetCount / 3)
   );
   allPhotos.push(...googlePhotos);
 
-  // Search Pinterest (25 photos)
+  // Search Pinterest
   const pinterestPhotos = await searchPinterest(
     cafe.name,
-    Math.ceil(targetCount / 2)
+    Math.ceil(targetCount / 3)
   );
   allPhotos.push(...pinterestPhotos);
 
